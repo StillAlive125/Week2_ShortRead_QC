@@ -1,0 +1,12 @@
+---
+title: "ShortRead_Hygiene"
+author: "Krish"
+format: html
+editor: visual
+---
+
+## **Data Acquisition**
+
+```{r}
+
+```
