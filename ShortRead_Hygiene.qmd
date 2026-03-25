@@ -32,15 +32,112 @@ unzip ("data/raw_reads/miseqsopdata.zip", exdir = "data/raw_reads/")
 #| echo: false
 #| eeval: false
 
-library("Rqc")
-library("ShortRead")
-library("QuasR")
+library("Rqc") 
+library("fastqcr") 
+library("QuasR") 
+library("ShortRead") 
 library("ggplot2")
 
-qc_result <- require("MiSeq_SOP")
 
+qc_result <- rqc(path = "data/raw_reads/MiSeq_SOP/", pattern = ".fastq", openBrowser= FALSE)
 
-p_avg <- rqcReadQualityBoxPlot(qc_result)
-ggsave("average_quality.png", plot = p_avg)
+```
 
+### **Average Read Quality**
+
+```{r}
+p_avg <- rqcReadQualityBoxPlot(qc_result)+
+  geom_hline(yintercept = 30, color = "green", linetype = "dashed")
+ggsave("figures/average_quality.png", plot = p_avg)
+p_avg
+```
+
+### **Per Cycle Quality**
+
+```{r}
+p_qual <-rqcCycleQualityBoxPlot(qc_result)+
+  geom_hline(yintercept = 30, color = "green", linetype = "dashed") +
+  geom_hline(yintercept = 20, color = "red", linetype = "dashed")
+ggsave("figures/quality_boxplot.png", plot = p_qual, width = 42, height = 60, units = "cm")
+p_qual
+```
+
+### **Per Cycle Base Content**
+
+```{r}
+p_base <-rqcCycleBaseCallsLinePlot(qc_result)
+ggsave("figures/qbase_content_plot.png", plot = p_base, width = 42, height = 60, units = "cm")
+p_base
+```
+
+### **Read Frequency**
+
+```{r}
+p_freq <-rqcReadFrequencyPlot(qc_result)
+ggsave("figures/read_frequency.png", plot = p_freq, width = 42, height = 60, units = "cm")
+p_freq
+```
+
+## **Automated Reporting: The Full Audit**
+
+```{r}
+#| echo: false
+#| eeval: false
+
+# Setup knitr options for the report generation
+# This ensures that even in a non-interactive environment, 
+# the automated report renders successfully.
+knitr::opts_chunk$set(
+  eval = TRUE,
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+)
+
+# Generate the HTML report
+# By specifying an outdir, we tell Rqc exactly where to put the results
+dir.create("results/Rqc_Full_Report")
+reportFile <- rqcReport(qc_result, outdir = "results/Rqc_Full_Report")
+```
+
+## **The “MultiQC” Logic: Aggregating Data**
+
+```{r}
+qc_data <- qc_aggregate("fastqc_results")
+class(qc_data)
+
+qc_report("fastqc_results", result.file = "results/multi-qc-report", interpret = TRUE)
+```
+
+## **The Cleanup (Trimming with QuasR)**
+
+```{r}
+# 1. Locate the example file
+example_file <- system.file(package="ShortRead", "extdata/E-MTAB-1147", "ERR127302_1_subset.fastq.gz")
+
+# 2. Define where the output should go
+clean_example <- "clean_example.fastq"
+
+# 3. Run the Trimmer
+# truncationQuality = 20: Chop off bases from the end if quality < 20
+# minReadLength = 50: Throw away the read if it ends up shorter than 50bp
+preprocessReads(filename = example_file,
+                outputFilename = clean_example,
+                truncateEndBases = 10,
+                minLength = 50)
+```
+
+```{r}
+dir.create("data/processed_reads")
+# List only the fastq files with the correct path
+fq_list <- paste("data/raw_reads/MiSeq_SOP/", 
+                 list.files("data/raw_reads/MiSeq_SOP", pattern = "\\.fastq$"), 
+                 sep = "")
+out_list <- paste("data/processed_reads/",
+                  list.files("data/raw_reads/MiSeq_SOP", pattern="\\.fastq$"),
+                  "_processed.fastq", sep="")
+preprocessReads(filename = fq_list,
+                outputFilename = out_list,
+                truncateEndBases = 50,
+                minLength = 200)
 ```
